@@ -38,12 +38,19 @@ jobs:
           path: ./artifacts
         continue-on-error: true  # 如果 artifact 不存在，继续执行
 
+      - name: Debug downloaded artifact
+        run: |
+          echo "Listing downloaded files:"
+          ls -R ./artifacts || echo "No files found in ./artifacts"
+
       - name: Compare with previous release
         id: compare_release
         run: |
-          # 如果文件不存在，默认设置为 NONE
-          if [ -f ./artifacts/caddy-version.txt ]; then
-            PREVIOUS_VERSION=$(cat ./artifacts/caddy-version.txt)
+          # 检查可能的路径并提取版本
+          if [ -f "./artifacts/caddy-version.txt" ]; then
+            PREVIOUS_VERSION=$(cat "./artifacts/caddy-version.txt")
+          elif [ -f "./artifacts/caddy-version-info/caddy-version.txt" ]; then
+            PREVIOUS_VERSION=$(cat "./artifacts/caddy-version-info/caddy-version.txt")
           else
             PREVIOUS_VERSION="NONE"
           fi
@@ -70,6 +77,7 @@ jobs:
         with:
           name: caddy-version-info
           path: ./artifacts/caddy-version.txt
+          if-no-files-found: error
 
   # build 和 release job 保持不变...
   build:
