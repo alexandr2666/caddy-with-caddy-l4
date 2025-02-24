@@ -146,8 +146,7 @@ jobs:
           tag_name: ${{ format('{0}-{1}', needs.build.outputs.version, github.run_id) }}
           files: |
             artifacts/caddy-amd64/caddy_amd64
-            artifacts/caddy-amd64/caddy_amd64v3
+            artifacts/caddy-amd64v3/caddy_amd64v3
             artifacts/caddy-arm64/caddy_arm64
-            artifacts/caddy-arm64v9/caddy_arm64v9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
