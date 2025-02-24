@@ -10,9 +10,6 @@ on:
         description: 'caddy version to build (use "latest" for the latest release)'
         required: false
         default: "latest"
-      tag:
-        type: string
-        required: false
   schedule:
     - cron: "0 19 * * 2"
 
