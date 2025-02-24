@@ -1,4 +1,4 @@
-name: Weekly Custom Caddy with Layer4
+name: Weekly Custom Build
 
 permissions:
   contents: write  # 允许创建 Release 和上传 Artifact
@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Caddy version to build (use "latest" for the latest release)'
+        description: 'caddy version to build (use "latest" for the latest release)'
         required: false
         default: "latest"
       tag:
@@ -32,7 +32,7 @@ jobs:
         with:
           go-version: "1.24"
 
-      - name: Determine Caddy Version
+      - name: Determine caddy Version
         id: get_version
         run: |
           if [ "${{ github.event.inputs.version }}" = "latest" ]; then
@@ -40,7 +40,7 @@ jobs:
           else
             LATEST_VERSION="${{ github.event.inputs.version }}"
           fi
-          echo "Caddy version: $LATEST_VERSION"
+          echo "caddy version: $LATEST_VERSION"
           echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
 
       - name: Install xcaddy
@@ -48,7 +48,7 @@ jobs:
           go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
           echo "$HOME/go/bin" >> $GITHUB_PATH
 
-      - name: Build Custom Caddy Binary
+      - name: Build Custom caddy Binary
         run: |
           xcaddy build ${{ steps.get_version.outputs.version }} --with github.com/mholt/caddy-l4
 
@@ -73,8 +73,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag || format('{0}-{1}', needs.build.outputs.version, github.run_id) }}
-          name: "Caddy ${{ needs.build.outputs.version }} (Build ${{ github.run_id }})"
-          body: "Custom build of Caddy with layer4 module."
+          name: "${{ needs.build.outputs.version }} (Build ${{ github.run_id }})"
+          body: "Weekly Build"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
