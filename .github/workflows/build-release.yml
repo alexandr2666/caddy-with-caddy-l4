@@ -1,7 +1,7 @@
 name: Build Release
 
 permissions:
-  contents: write
+  contents: write  # 需要写权限来提交文件到 repo
 
 on:
   workflow_dispatch:
@@ -23,7 +23,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0
+          fetch-depth: 0  # 获取完整历史，以便后续提交
 
       - name: Get latest Caddy release
         id: get_latest_release
@@ -68,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        arch: [amd64, armv7, arm64, arm64v9]  # armv7 (32位), arm64 (v8), arm64v9 (v9)
+        arch: [amd64, arm64, arm64v9]
     outputs:
       version: ${{ steps.get_version.outputs.version }}
     env:
@@ -81,12 +81,6 @@ jobs:
         uses: actions/setup-go@v4
         with:
           go-version: "1.24"
-
-      - name: Install build dependencies
-        if: contains(matrix.arch, 'arm')  # 为 ARM 构建安装交叉编译工具
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu
 
       - name: Determine caddy Version
         id: get_version
@@ -109,21 +103,16 @@ jobs:
             GOAMD64=v3 xcaddy build ${{ steps.get_version.outputs.version }} \
               --with github.com/mholt/caddy-l4@latest \
               --output caddy_${{ matrix.arch }}v3
-          elif [ "${{ matrix.arch }}" = "armv7" ]; then
-            GOARCH=arm GOARM=7 xcaddy build ${{ steps.get_version.outputs.version }} \
+          if [ "${{ matrix.arch }}" = "arm64" ]; then
+            GOARCH=${{ matrix.arch }} xcaddy build ${{ steps.get_version.outputs.version }} \
               --with github.com/mholt/caddy-l4@latest \
-              --output caddy_armv7
-          elif [ "${{ matrix.arch }}" = "arm64" ]; then
-            GOARCH=arm64 xcaddy build ${{ steps.get_version.outputs.version }} \
+              --output caddy_${{ matrix.arch }}
+          if [ "${{ matrix.arch }}" = "arm64v9" ]; then
+            GOARCH=${{ matrix.arch }} xcaddy build ${{ steps.get_version.outputs.version }} \
               --with github.com/mholt/caddy-l4@latest \
-              --output caddy_arm64
-          elif [ "${{ matrix.arch }}" = "arm64v9" ]; then
-            CGO_ENABLED=1 GOARCH=arm64 xcaddy build ${{ steps.get_version.outputs.version }} \
-              --with github.com/mholt/caddy-l4@latest \
-              --output caddy_arm64v9 \
-              -ldflags "-extldflags '-march=armv9-a'"
+              --output caddy_${{ matrix.arch }}
           else
-            echo "Unsupported architecture: ${{ matrix.arch }}"
+            echo "Unsupported architecture"
             exit 1
           fi
 
@@ -134,9 +123,6 @@ jobs:
           path: |
             caddy_${{ matrix.arch }}
             caddy_${{ matrix.arch }}v3
-            caddy_armv7
-            caddy_arm64
-            caddy_arm64v9
           if-no-files-found: error
 
   release:
@@ -150,12 +136,6 @@ jobs:
 
       - name: Create GitHub Release
         id: create_release
-        uses: actions/upload-artifact@v4
-        with:
-          name: caddy-version-info
-          path: ./artifacts/caddy-version.txt
-          if-no-files-found: error
-          retention-days: 30
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ format('{0}-{1}', needs.build.outputs.version, github.run_id) }}
@@ -171,8 +151,6 @@ jobs:
           files: |
             artifacts/caddy-amd64/caddy_amd64
             artifacts/caddy-amd64/caddy_amd64v3
-            artifacts/caddy-armv7/caddy_armv7
             artifacts/caddy-arm64/caddy_arm64
-            artifacts/caddy-arm64v9/caddy_arm64v9
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
