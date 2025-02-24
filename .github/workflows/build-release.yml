@@ -68,7 +68,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        arch: [amd64, amd64v3, arm64, arm64v9]
+        arch: [amd64, amd64v3, arm64]
     outputs:
       version: ${{ steps.get_version.outputs.version }}
     env:
@@ -106,10 +106,6 @@ jobs:
               --output caddy_${{ matrix.arch }}
           elif [ "${{ matrix.arch }}" = "arm64" ]; then
             GOARCH=arm64 xcaddy build ${{ steps.get_version.outputs.version }} \
-              --with github.com/mholt/caddy-l4@latest \
-              --output caddy_${{ matrix.arch }}
-          elif [ "${{ matrix.arch }}" = "arm64v9" ]; then
-            CGO_ENABLED=1 GOARCH=arm64 xcaddy build ${{ steps.get_version.outputs.version }} \
               --with github.com/mholt/caddy-l4@latest \
               --output caddy_${{ matrix.arch }}
           else
