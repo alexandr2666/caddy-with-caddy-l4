@@ -2,8 +2,8 @@ name: Build Custom Caddy with layer4
 
 on:
   schedule:
-    - cron: '0 * * * *'  # 每小时检测一次
-  workflow_dispatch:    # 也可以手动触发
+    - cron: "0 * * * *" # 每小时检测一次
+  workflow_dispatch: # 也可以手动触发
 
 jobs:
   build:
@@ -20,9 +20,12 @@ jobs:
           echo "LATEST_VERSION=$LATEST_VERSION" >> $GITHUB_ENV
 
       - name: Build custom Caddy binary
+        env:
+          PATH: ${{ env.PATH }}:/usr/local/go/bin:${{ env.HOME }}/go/bin
         run: |
           go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
           xcaddy build $LATEST_VERSION --with github.com/your-layer4-module-repo
+
           
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
