@@ -12,15 +12,6 @@ Manual builds via GitHub Actions workflow dispatch.
 
 Releases include the compiled binary as an artifact.
 
-## Usage
-Automated Builds
-
-The project runs automatically every hour to check new caddy version.
-
-Each build creates a new GitHub Release with a tag in the format <caddy-version>-<build-id> (e.g., v2.9.1-13492697911).
-
-The Release title includes the Caddy version and build ID (e.g., Caddy v2.9.1 (Build 13492697911)).
-
 ## Manual Builds
 Go to the Actions tab in this repository.
 
