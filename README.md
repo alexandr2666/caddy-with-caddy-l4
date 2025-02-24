@@ -15,7 +15,7 @@ Releases include the compiled binary as an artifact.
 ## Usage
 Automated Builds
 
-The project runs automatically every Wednesday at 3:00 AM UTC.
+The project runs automatically every hour to check new caddy version.
 
 Each build creates a new GitHub Release with a tag in the format <caddy-version>-<build-id> (e.g., v2.9.1-13492697911).
 
