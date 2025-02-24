@@ -1,0 +1,25 @@
+name: Check Caddy Release
+
+on:
+  schedule:
+    - cron: "0 * * * *"  # 每小时运行一次
+  workflow_dispatch:     # 允许手动触发
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Get latest Caddy version
+        id: get_caddy
+        run: |
+          LATEST_VERSION=$(curl -s https://api.github.com/repos/caddyserver/caddy/releases/latest | jq -r .tag_name)
+          echo "Latest Caddy version is $LATEST_VERSION"
+          echo "::set-output name=version::$LATEST_VERSION"
+
+      - name: Trigger repository_dispatch event
+        run: |
+          curl -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            https://api.github.com/repos/<yourusername>/<yourrepo>/dispatches \
+            -d "{\"event_type\": \"new-caddy-release\", \"client_payload\": {\"version\": \"${{ steps.get_caddy.outputs.version }}\"}}"
