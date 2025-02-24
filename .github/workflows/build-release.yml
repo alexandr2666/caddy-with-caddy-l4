@@ -11,7 +11,7 @@ on:
         required: false
         default: "latest"
   schedule:
-    - cron: "0 19 * * 2"  # 每周二 19:00 UTC
+    - cron: "0 * * * *"
 
 jobs:
   check_caddy_release:
