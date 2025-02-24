@@ -95,7 +95,7 @@ jobs:
 
       - name: Build Custom caddy Binary
         run: |
-          xcaddy build ${{ steps.get_version.outputs.version }} --with github.com/mholt/caddy-l4
+          xcaddy build ${{ steps.get_version.outputs.version }} --with github.com/mholt/caddy-l4@latest
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
