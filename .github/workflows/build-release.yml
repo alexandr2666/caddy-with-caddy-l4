@@ -1,7 +1,7 @@
 name: Build Release
 
 permissions:
-  contents: write  # 需要写权限来提交文件到 repo
+  contents: write
 
 on:
   workflow_dispatch:
@@ -23,7 +23,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v3
         with:
-          fetch-depth: 0  # 获取完整历史，以便后续提交
+          fetch-depth: 0
 
       - name: Get latest Caddy release
         id: get_latest_release
@@ -150,11 +150,17 @@ jobs:
 
       - name: Create GitHub Release
         id: create_release
+        uses: actions/upload-artifact@v4
+        with:
+          name: caddy-version-info
+          path: ./artifacts/caddy-version.txt
+          if-no-files-found: error
+          retention-days: 30
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ format('{0}-{1}', needs.build.outputs.version, github.run_id) }}
           name: "${{ needs.build.outputs.version }} (Build ${{ github.run_id }})"
-          body: "Build triggered by Caddy release ${{ needs.build.outputs.version }}"
+          body: "Weekly Build triggered by Caddy release ${{ needs.build.outputs.version }}"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
