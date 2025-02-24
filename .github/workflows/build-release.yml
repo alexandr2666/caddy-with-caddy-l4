@@ -1,6 +1,14 @@
 name: Build Custom Caddy with Layer4
 
 on:
+  # 手动触发，并允许传入要构建的版本（默认 latest）
+  workflow_dispatch:
+    inputs:
+      version:
+        description:
+          'Caddy version to build (use "latest" for the latest release)'
+        required: false
+        default: "latest"
   repository_dispatch:
     types: [new-caddy-release]
 
