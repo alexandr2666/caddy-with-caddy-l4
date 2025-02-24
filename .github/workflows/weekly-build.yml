@@ -1,4 +1,4 @@
-name: Build Custom Caddy with Layer4
+name: Weekly Custom Caddy with Layer4
 
 permissions:
   contents: write  # 允许创建 Release 和上传 Artifact
