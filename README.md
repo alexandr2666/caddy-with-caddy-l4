@@ -6,7 +6,7 @@ Builds Caddy with the caddy-l4 plugin for Layer 4 proxy support.
 
 Supports building the latest Caddy release or a specific version.
 
-Automated weekly builds every Wednesday at 3:00 AM UTC.
+Automated check new caddy version every hour and build release if a new version is detected.
 
 Manual builds via GitHub Actions workflow dispatch.
 
