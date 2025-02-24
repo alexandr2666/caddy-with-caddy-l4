@@ -37,7 +37,7 @@ jobs:
           fi
           echo "Caddy version: $LATEST_VERSION"
           echo "LATEST_VERSION=$LATEST_VERSION" >> $GITHUB_ENV
-          echo "::set-output name=version::$LATEST_VERSION"
+          echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
 
       - name: Install xcaddy
         run: |
@@ -47,7 +47,7 @@ jobs:
 
       - name: Build Custom Caddy Binary
         run: |
-          xcaddy build $LATEST_VERSION --with github.com/your-layer4-module-repo
+          xcaddy build $LATEST_VERSION --with github.com/mholt/caddy-l4
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
