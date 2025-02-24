@@ -5,12 +5,13 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Caddy version to build (use "latest" for the latest release)'
+        description:
+          'Caddy version to build (use "latest" for the latest release)'
         required: false
-        default: 'latest'
+        default: "latest"
   # 每小时定时检测新版发布
   schedule:
-    - cron: '0 * * * *'
+    - cron: "0 * * * *"
 
 jobs:
   build:
@@ -25,7 +26,7 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.24'
+          go-version: "1.24"
 
       - name: Determine Caddy Version
         id: get_version
@@ -52,5 +53,33 @@ jobs:
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: custom-caddy
+          name: caddy
           path: ./caddy
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: caddy
+          path: .
+  
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.LATEST_VERSION }}
+          name: "Caddy ${LATEST_VERSION}"
+          body: "Custom build of Caddy with layer4 module."
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.LATEST_VERSION }}
+          files: ./caddy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
