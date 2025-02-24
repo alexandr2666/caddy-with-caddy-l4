@@ -1,7 +1,7 @@
 name: Build Release
 
 permissions:
-  contents: write  # 允许创建 Release 和上传 Artifact
+  contents: write
 
 on:
   workflow_dispatch:
@@ -36,13 +36,19 @@ jobs:
         with:
           name: caddy-version-info
           path: ./artifacts
-        continue-on-error: true  # 如果没有之前的 Artifact，继续执行
+        continue-on-error: true  # 如果 artifact 不存在，继续执行
 
       - name: Compare with previous release
         id: compare_release
         run: |
-          PREVIOUS_VERSION=$(cat ./artifacts/caddy-version.txt 2>/dev/null || echo "NONE")
+          # 如果文件不存在，默认设置为 NONE
+          if [ -f ./artifacts/caddy-version.txt ]; then
+            PREVIOUS_VERSION=$(cat ./artifacts/caddy-version.txt)
+          else
+            PREVIOUS_VERSION="NONE"
+          fi
           echo "Previous version: $PREVIOUS_VERSION"
+          echo "Current version: ${{ steps.get_latest_release.outputs.caddy_version }}"
           if [ "${{ steps.get_latest_release.outputs.caddy_version }}" != "$PREVIOUS_VERSION" ]; then
             echo "New Caddy release detected!"
             echo "new_release=true" >> $GITHUB_OUTPUT
@@ -54,7 +60,8 @@ jobs:
       - name: Store new Caddy version
         if: steps.compare_release.outputs.new_release == 'true'
         run: |
-          echo "${{ steps.get_latest_release.outputs.caddy_version }}" > caddy-version.txt
+          mkdir -p ./artifacts
+          echo "${{ steps.get_latest_release.outputs.caddy_version }}" > ./artifacts/caddy-version.txt
           echo "Saved ${{ steps.get_latest_release.outputs.caddy_version }} to caddy-version.txt"
 
       - name: Upload new version info
@@ -62,8 +69,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: caddy-version-info
-          path: caddy-version.txt
+          path: ./artifacts/caddy-version.txt
 
+  # build 和 release job 保持不变...
   build:
     needs: check_caddy_release
     if: needs.check_caddy_release.outputs.new_release == 'true'  # 仅在新 Release 时运行
