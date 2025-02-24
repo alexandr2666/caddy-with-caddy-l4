@@ -36,12 +36,13 @@ jobs:
         with:
           name: caddy-version-info
           path: ./artifacts
-        continue-on-error: true  # 如果 artifact 不存在，继续执行
+        continue-on-error: true
 
       - name: Debug downloaded artifact
         run: |
+          echo "Download step outcome: ${{ steps.download_previous.outcome }}"
           echo "Listing downloaded files:"
-          ls -R ./artifacts || echo "No files found in ./artifacts"
+          ls -R ./artifacts 2>/dev/null || echo "No files found in ./artifacts"
 
       - name: Compare with previous release
         id: compare_release
@@ -78,7 +79,7 @@ jobs:
           name: caddy-version-info
           path: ./artifacts/caddy-version.txt
           if-no-files-found: error
-
+          retention-days: 30  # 设置保留期为 30 天，可根据需要调整
   # build 和 release job 保持不变...
   build:
     needs: check_caddy_release
