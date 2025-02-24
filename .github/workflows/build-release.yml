@@ -124,7 +124,6 @@ jobs:
           name: caddy-${{ matrix.arch }}
           path: |
             caddy_${{ matrix.arch }}
-            caddy_${{ matrix.arch }}v3
           if-no-files-found: error
 
   release:
