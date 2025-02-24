@@ -63,81 +63,81 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build:
-      needs: check_caddy_release
-      if: needs.check_caddy_release.outputs.new_release == 'true'
-      runs-on: ubuntu-latest
-      strategy:
-        matrix:
-          arch: [amd64, armv7, arm64, arm64v9]  # armv7 (32位), arm64 (v8), arm64v9 (v9)
-      outputs:
-        version: ${{ steps.get_version.outputs.version }}
-      env:
-        GO111MODULE: "on"
-      steps:
-        - name: Checkout repository
-          uses: actions/checkout@v3
+    needs: check_caddy_release
+    if: needs.check_caddy_release.outputs.new_release == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        arch: [amd64, armv7, arm64, arm64v9]  # armv7 (32位), arm64 (v8), arm64v9 (v9)
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+    env:
+      GO111MODULE: "on"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
 
-        - name: Set up Go
-          uses: actions/setup-go@v4
-          with:
-            go-version: "1.24"
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.24"
 
-        - name: Install build dependencies
-          if: contains(matrix.arch, 'arm')  # 为 ARM 构建安装交叉编译工具
-          run: |
-            sudo apt-get update
-            sudo apt-get install -y gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu
+      - name: Install build dependencies
+        if: contains(matrix.arch, 'arm')  # 为 ARM 构建安装交叉编译工具
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-arm-linux-gnueabihf gcc-aarch64-linux-gnu
 
-        - name: Determine caddy Version
-          id: get_version
-          run: |
-            LATEST_VERSION="${{ needs.check_caddy_release.outputs.caddy_version }}"
-            echo "caddy version: $LATEST_VERSION"
-            echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+      - name: Determine caddy Version
+        id: get_version
+        run: |
+          LATEST_VERSION="${{ needs.check_caddy_release.outputs.caddy_version }}"
+          echo "caddy version: $LATEST_VERSION"
+          echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
 
-        - name: Install xcaddy
-          run: |
-            go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
-            echo "$HOME/go/bin" >> $GITHUB_PATH
+      - name: Install xcaddy
+        run: |
+          go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
+          echo "$HOME/go/bin" >> $GITHUB_PATH
 
-        - name: Build Custom caddy Binary
-          run: |
-            if [ "${{ matrix.arch }}" = "amd64" ]; then
-              xcaddy build ${{ steps.get_version.outputs.version }} \
-                --with github.com/mholt/caddy-l4@latest \
-                --output caddy_${{ matrix.arch }}
-              GOAMD64=v3 xcaddy build ${{ steps.get_version.outputs.version }} \
-                --with github.com/mholt/caddy-l4@latest \
-                --output caddy_${{ matrix.arch }}v3
-            elif [ "${{ matrix.arch }}" = "armv7" ]; then
-              GOARCH=arm GOARM=7 xcaddy build ${{ steps.get_version.outputs.version }} \
-                --with github.com/mholt/caddy-l4@latest \
-                --output caddy_armv7
-            elif [ "${{ matrix.arch }}" = "arm64" ]; then
-              GOARCH=arm64 xcaddy build ${{ steps.get_version.outputs.version }} \
-                --with github.com/mholt/caddy-l4@latest \
-                --output caddy_arm64
-            elif [ "${{ matrix.arch }}" = "arm64v9" ]; then
-              CGO_ENABLED=1 GOARCH=arm64 xcaddy build ${{ steps.get_version.outputs.version }} \
-                --with github.com/mholt/caddy-l4@latest \
-                --output caddy_arm64v9 \
-                -ldflags "-extldflags '-march=armv9-a'"
-            else
-              echo "Unsupported architecture: ${{ matrix.arch }}"
-              exit 1
-            fi
+      - name: Build Custom caddy Binary
+        run: |
+          if [ "${{ matrix.arch }}" = "amd64" ]; then
+            xcaddy build ${{ steps.get_version.outputs.version }} \
+              --with github.com/mholt/caddy-l4@latest \
+              --output caddy_${{ matrix.arch }}
+            GOAMD64=v3 xcaddy build ${{ steps.get_version.outputs.version }} \
+              --with github.com/mholt/caddy-l4@latest \
+              --output caddy_${{ matrix.arch }}v3
+          elif [ "${{ matrix.arch }}" = "armv7" ]; then
+            GOARCH=arm GOARM=7 xcaddy build ${{ steps.get_version.outputs.version }} \
+              --with github.com/mholt/caddy-l4@latest \
+              --output caddy_armv7
+          elif [ "${{ matrix.arch }}" = "arm64" ]; then
+            GOARCH=arm64 xcaddy build ${{ steps.get_version.outputs.version }} \
+              --with github.com/mholt/caddy-l4@latest \
+              --output caddy_arm64
+          elif [ "${{ matrix.arch }}" = "arm64v9" ]; then
+            CGO_ENABLED=1 GOARCH=arm64 xcaddy build ${{ steps.get_version.outputs.version }} \
+              --with github.com/mholt/caddy-l4@latest \
+              --output caddy_arm64v9 \
+              -ldflags "-extldflags '-march=armv9-a'"
+          else
+            echo "Unsupported architecture: ${{ matrix.arch }}"
+            exit 1
+          fi
 
-        - name: Upload Build Artifact
-          uses: actions/upload-artifact@v4
-          with:
-            name: caddy-${{ matrix.arch }}
-            path: |
-              caddy_${{ matrix.arch }}
-              caddy_${{ matrix.arch }}v3
-              caddy_armv7
-              caddy_arm64
-              caddy_arm64v9
-            if-no-files-found: error
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: caddy-${{ matrix.arch }}
+          path: |
+            caddy_${{ matrix.arch }}
+            caddy_${{ matrix.arch }}v3
+            caddy_armv7
+            caddy_arm64
+            caddy_arm64v9
+          if-no-files-found: error
 
   release:
     needs: build
@@ -150,19 +150,13 @@ jobs:
 
       - name: Create GitHub Release
         id: create_release
-        uses: actions/upload-artifact@v4
+        uses: softprops/action-gh-release@v2
         with:
-          name: caddy-version-info
-          path: ./artifacts/caddy-version.txt
-          if-no-files-found: error
-          retention-days: 30
-          uses: softprops/action-gh-release@v2
-          with:
-            tag_name: ${{ format('{0}-{1}', needs.build.outputs.version, github.run_id) }}
-            name: "${{ needs.build.outputs.version }} (Build ${{ github.run_id }})"
-            body: "Weekly Build triggered by Caddy release ${{ needs.build.outputs.version }}"
-          env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ format('{0}-{1}', needs.build.outputs.version, github.run_id) }}
+          name: "${{ needs.build.outputs.version }} (Build ${{ github.run_id }})"
+          body: "Build triggered by Caddy release ${{ needs.build.outputs.version }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Release Assets
         uses: softprops/action-gh-release@v2
