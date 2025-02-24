@@ -112,7 +112,6 @@ jobs:
             CGO_ENABLED=1 GOARCH=arm64 xcaddy build ${{ steps.get_version.outputs.version }} \
               --with github.com/mholt/caddy-l4@latest \
               --output caddy_${{ matrix.arch }} \
-              -ldflags "-extldflags=-march=armv9-a"
           else
             echo "Unsupported architecture"
             exit 1
