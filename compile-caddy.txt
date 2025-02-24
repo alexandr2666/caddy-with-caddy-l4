@@ -1,0 +1,11 @@
+wget https://go.dev/dl/go1.24.0.linux-amd64.tar.gz
+tar -C /usr/local -xzf <go file>
+
+#在 /etc/profile 文件添加：
+export PATH=$PATH:/usr/local/go/bin
+export PATH=$PATH:$HOME/go/bin
+# 运行
+source /etc/profile
+
+go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
+xcaddy build --with github.com/mholt/caddy-l4
