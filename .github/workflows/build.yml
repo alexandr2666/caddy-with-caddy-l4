@@ -25,7 +25,7 @@ jobs:
           xcaddy build $LATEST_VERSION --with github.com/your-layer4-module-repo
           
       - name: Upload build artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: custom-caddy
-          path: ./caddy  # 假设生成的二进制文件名为 caddy
+          path: ./caddy
