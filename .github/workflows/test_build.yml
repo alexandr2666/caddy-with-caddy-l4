@@ -1,7 +1,7 @@
-name: Test Build Release
+name: Build Release
 
 permissions:
-  contents: write
+  contents: write  # 需要写权限来提交文件到 repo
 
 on:
   workflow_dispatch:
@@ -22,6 +22,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # 获取完整历史，以便后续提交
 
       - name: Get latest Caddy release
         id: get_latest_release
@@ -30,20 +32,11 @@ jobs:
           echo "Latest Caddy version: $CADDY_VERSION"
           echo "caddy_version=$CADDY_VERSION" >> $GITHUB_OUTPUT
 
-      - name: Download previous Caddy version info
-        id: download_previous
-        uses: actions/download-artifact@v4
-        with:
-          name: caddy-version-info
-          path: ./artifacts
-        continue-on-error: true  # 如果 artifact 不存在，继续执行
-
       - name: Compare with previous release
         id: compare_release
         run: |
-          # 如果文件不存在，默认设置为 NONE
-          if [ -f ./artifacts/caddy-version.txt ]; then
-            PREVIOUS_VERSION=$(cat ./artifacts/caddy-version.txt)
+          if [ -f "caddy-version.txt" ]; then
+            PREVIOUS_VERSION=$(cat caddy-version.txt)
           else
             PREVIOUS_VERSION="NONE"
           fi
@@ -57,19 +50,17 @@ jobs:
             echo "new_release=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Store new Caddy version
+      - name: Update version file in repo
         if: steps.compare_release.outputs.new_release == 'true'
         run: |
-          mkdir -p ./artifacts
-          echo "${{ steps.get_latest_release.outputs.caddy_version }}" > ./artifacts/caddy-version.txt
-          echo "Saved ${{ steps.get_latest_release.outputs.caddy_version }} to caddy-version.txt"
-
-      - name: Upload new version info
-        if: steps.compare_release.outputs.new_release == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: caddy-version-info
-          path: ./artifacts/caddy-version.txt
+          echo "${{ steps.get_latest_release.outputs.caddy_version }}" > caddy-version.txt
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          git add caddy-version.txt
+          git commit -m "Update caddy version to ${{ steps.get_latest_release.outputs.caddy_version }}"
+          git push
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build:
     needs: check_caddy_release
