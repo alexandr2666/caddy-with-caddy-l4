@@ -1,0 +1,132 @@
+name: Weekly Custom Build
+
+permissions:
+  contents: write  # 允许创建 Release 和上传 Artifact
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'caddy version to build (use "latest" for the latest release)'
+        required: false
+        default: "latest"
+  schedule:
+    - cron: "0 19 * * 2"  # 每周二 19:00 UTC
+
+jobs:
+  check_caddy_release:
+    runs-on: ubuntu-latest
+    outputs:
+      new_release: ${{ steps.compare_release.outputs.new_release }}
+      caddy_version: ${{ steps.get_latest_release.outputs.caddy_version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Get latest Caddy release
+        id: get_latest_release
+        run: |
+          CADDY_VERSION=$(curl -s https://api.github.com/repos/caddyserver/caddy/releases/latest | jq -r .tag_name)
+          echo "Latest Caddy version: $CADDY_VERSION"
+          echo "caddy_version=$CADDY_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download previous Caddy version info
+        id: download_previous
+        uses: actions/download-artifact@v4
+        with:
+          name: caddy-version-info
+          path: ./artifacts
+        continue-on-error: true  # 如果没有之前的 Artifact，继续执行
+
+      - name: Compare with previous release
+        id: compare_release
+        run: |
+          PREVIOUS_VERSION=$(cat ./artifacts/caddy-version.txt 2>/dev/null || echo "NONE")
+          echo "Previous version: $PREVIOUS_VERSION"
+          if [ "${{ steps.get_latest_release.outputs.caddy_version }}" != "$PREVIOUS_VERSION" ]; then
+            echo "New Caddy release detected!"
+            echo "new_release=true" >> $GITHUB_OUTPUT
+          else
+            echo "No new release."
+            echo "new_release=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Store new Caddy version
+        if: steps.compare_release.outputs.new_release == 'true'
+        run: |
+          echo "${{ steps.get_latest_release.outputs.caddy_version }}" > caddy-version.txt
+          echo "Saved ${{ steps.get_latest_release.outputs.caddy_version }} to caddy-version.txt"
+
+      - name: Upload new version info
+        if: steps.compare_release.outputs.new_release == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: caddy-version-info
+          path: caddy-version.txt
+
+  build:
+    needs: check_caddy_release
+    if: needs.check_caddy_release.outputs.new_release == 'true'  # 仅在新 Release 时运行
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+    env:
+      GO111MODULE: "on"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.24"
+
+      - name: Determine caddy Version
+        id: get_version
+        run: |
+          LATEST_VERSION="${{ needs.check_caddy_release.outputs.caddy_version }}"
+          echo "caddy version: $LATEST_VERSION"
+          echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Install xcaddy
+        run: |
+          go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
+          echo "$HOME/go/bin" >> $GITHUB_PATH
+
+      - name: Build Custom caddy Binary
+        run: |
+          xcaddy build ${{ steps.get_version.outputs.version }} --with github.com/mholt/caddy-l4
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: caddy
+          path: ./caddy
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Build Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: caddy
+          path: .
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ format('{0}-{1}', needs.build.outputs.version, github.run_id) }}
+          name: "${{ needs.build.outputs.version }} (Build ${{ github.run_id }})"
+          body: "Weekly Build triggered by Caddy release ${{ needs.build.outputs.version }}"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Release Asset
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ format('{0}-{1}', needs.build.outputs.version, github.run_id) }}
+          files: ./caddy
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
