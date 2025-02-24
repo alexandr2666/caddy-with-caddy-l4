@@ -1,4 +1,4 @@
-# Custom Caddy with caddy-l4 Plugin
+# Caddy with caddy-l4 Plugin
 This project automates the process of building a custom version of Caddy with the caddy-l4 plugin using GitHub Actions. The workflow compiles the binary and creates a GitHub Release with the built artifact.
 
 ## Features
