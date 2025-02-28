@@ -18,18 +18,25 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       new_release: ${{ steps.compare_release.outputs.new_release }}
-      caddy_version: ${{ steps.get_latest_release.outputs.caddy_version }}
+      caddy_version: ${{ steps.get_caddy_version.outputs.caddy_version }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0  # 获取完整历史，以便后续提交
 
-      - name: Get latest Caddy release
-        id: get_latest_release
+      - name: Get Caddy version
+        id: get_caddy_version
         run: |
-          CADDY_VERSION=$(curl -s https://api.github.com/repos/caddyserver/caddy/releases/latest | jq -r .tag_name)
-          echo "Latest Caddy version: $CADDY_VERSION"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.version }}" != "latest" ]; then
+            # 使用手动指定的版本
+            CADDY_VERSION="${{ github.event.inputs.version }}"
+            echo "Using specified Caddy version: $CADDY_VERSION"
+          else
+            # 获取最新版本
+            CADDY_VERSION=$(curl -s https://api.github.com/repos/caddyserver/caddy/releases/latest | jq -r .tag_name)
+            echo "Latest Caddy version: $CADDY_VERSION"
+          fi
           echo "caddy_version=$CADDY_VERSION" >> $GITHUB_OUTPUT
 
       - name: Compare with previous release
@@ -41,8 +48,12 @@ jobs:
             PREVIOUS_VERSION="NONE"
           fi
           echo "Previous version: $PREVIOUS_VERSION"
-          echo "Current version: ${{ steps.get_latest_release.outputs.caddy_version }}"
-          if [ "${{ steps.get_latest_release.outputs.caddy_version }}" != "$PREVIOUS_VERSION" ]; then
+          echo "Current version: ${{ steps.get_caddy_version.outputs.caddy_version }}"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            # 手动触发时始终构建
+            echo "Manual trigger detected, forcing build."
+            echo "new_release=true" >> $GITHUB_OUTPUT
+          elif [ "${{ steps.get_caddy_version.outputs.caddy_version }}" != "$PREVIOUS_VERSION" ]; then
             echo "New Caddy release detected!"
             echo "new_release=true" >> $GITHUB_OUTPUT
           else
@@ -53,11 +64,11 @@ jobs:
       - name: Update version file in repo
         if: steps.compare_release.outputs.new_release == 'true'
         run: |
-          echo "${{ steps.get_latest_release.outputs.caddy_version }}" > caddy-version.txt
+          echo "${{ steps.get_caddy_version.outputs.caddy_version }}" > caddy-version.txt
           git config --global user.name "GitHub Action"
           git config --global user.email "action@github.com"
           git add caddy-version.txt
-          git commit -m "Update caddy version to ${{ steps.get_latest_release.outputs.caddy_version }}"
+          git commit -m "Update caddy version to ${{ steps.get_caddy_version.outputs.caddy_version }}"
           git push
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -65,49 +76,57 @@ jobs:
   build:
     needs: check_caddy_release
     if: needs.check_caddy_release.outputs.new_release == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest-16-core # 使用更强大的运行器
     strategy:
       matrix:
         arch: [amd64, amd64v3, arm64]
+      fail-fast: true  # 添加 fail-fast 策略，如果一个构建失败，其他任务会被取消
     outputs:
-      version: ${{ steps.get_version.outputs.version }}
+      version: ${{ steps.setup.outputs.version }}
     env:
       GO111MODULE: "on"
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       - name: Set up Go
         uses: actions/setup-go@v4
         with:
           go-version: "1.24"
+          cache: true # 启用Go模块缓存
 
-      - name: Determine caddy Version
-        id: get_version
+      - name: Install xcaddy and determine version (parallel)
+        id: setup
         run: |
+          # 并行安装 xcaddy 和获取版本
+          (go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest) &
+          XCADDY_PID=$!
+          
+          # 获取版本信息
           LATEST_VERSION="${{ needs.check_caddy_release.outputs.caddy_version }}"
           echo "caddy version: $LATEST_VERSION"
           echo "version=$LATEST_VERSION" >> $GITHUB_OUTPUT
-
-      - name: Install xcaddy
-        run: |
-          go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
+          
+          # 等待 xcaddy 安装完成
+          wait $XCADDY_PID
           echo "$HOME/go/bin" >> $GITHUB_PATH
 
       - name: Build Custom caddy Binary
         run: |
+          OUTPUT_FILE="caddy-${{ matrix.arch }}"  # 保持文件名与 artifact 名称一致
+          
           if [ "${{ matrix.arch }}" = "amd64" ]; then
-            xcaddy build ${{ steps.get_version.outputs.version }} \
+            xcaddy build ${{ steps.setup.outputs.version }} \
               --with github.com/mholt/caddy-l4@latest \
-              --output caddy_${{ matrix.arch }}
+              --output $OUTPUT_FILE
           elif [ "${{ matrix.arch }}" = "amd64v3" ]; then
-            GOAMD64=v3 xcaddy build ${{ steps.get_version.outputs.version }} \
+            GOAMD64=v3 xcaddy build ${{ steps.setup.outputs.version }} \
               --with github.com/mholt/caddy-l4@latest \
-              --output caddy_${{ matrix.arch }}
+              --output $OUTPUT_FILE
           elif [ "${{ matrix.arch }}" = "arm64" ]; then
-            GOARCH=arm64 xcaddy build ${{ steps.get_version.outputs.version }} \
+            GOARCH=arm64 xcaddy build ${{ steps.setup.outputs.version }} \
               --with github.com/mholt/caddy-l4@latest \
-              --output caddy_${{ matrix.arch }}
+              --output $OUTPUT_FILE
           else
             echo "Unsupported architecture"
             exit 1
@@ -118,7 +137,7 @@ jobs:
         with:
           name: caddy-${{ matrix.arch }}
           path: |
-            caddy_${{ matrix.arch }}
+            caddy-${{ matrix.arch }}
           if-no-files-found: error
 
   release:
@@ -130,23 +149,15 @@ jobs:
         with:
           path: artifacts
 
-      - name: Create GitHub Release
-        id: create_release
+      - name: Create GitHub Release with Assets
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ format('{0}-{1}', needs.build.outputs.version, github.run_id) }}
           name: "${{ needs.build.outputs.version }} (Build ${{ github.run_id }})"
           body: "Weekly Build triggered by Caddy release ${{ needs.build.outputs.version }}"
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Release Assets
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ format('{0}-{1}', needs.build.outputs.version, github.run_id) }}
           files: |
-            artifacts/caddy-amd64/caddy_amd64
-            artifacts/caddy-amd64v3/caddy_amd64v3
-            artifacts/caddy-arm64/caddy_arm64
+            artifacts/caddy-amd64/caddy-amd64
+            artifacts/caddy-amd64v3/caddy-amd64v3
+            artifacts/caddy-arm64/caddy-arm64
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
