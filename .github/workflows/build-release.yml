@@ -83,7 +83,7 @@ jobs:
   build:
     needs: check_caddy_release
     if: needs.check_caddy_release.outputs.new_release == 'true'
-    runs-on: ubuntu-latest-16-core # 使用更强大的运行器
+    runs-on: ubuntu-latest
     strategy:
       matrix:
         arch: [amd64, amd64v3, arm64]
