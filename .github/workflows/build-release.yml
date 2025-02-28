@@ -39,20 +39,6 @@ jobs:
           fi
           echo "caddy_version=$CADDY_VERSION" >> $GITHUB_OUTPUT
 
-      - name: Get Caddy version
-        id: get_caddy_version
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ] && [ "${{ github.event.inputs.version }}" != "latest" ]; then
-            # 使用手动指定的版本
-            CADDY_VERSION="${{ github.event.inputs.version }}"
-            echo "Using specified Caddy version: $CADDY_VERSION"
-          else
-            # 获取最新版本
-            CADDY_VERSION=$(curl -s https://api.github.com/repos/caddyserver/caddy/releases/latest | jq -r .tag_name)
-            echo "Latest Caddy version: $CADDY_VERSION"
-          fi
-          echo "caddy_version=$CADDY_VERSION" >> $GITHUB_OUTPUT
-
       - name: Compare with previous release
         id: compare_release
         run: |
