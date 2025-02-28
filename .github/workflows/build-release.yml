@@ -162,7 +162,7 @@ jobs:
         with:
           tag_name: ${{ format('{0}-{1}', needs.build.outputs.version, github.run_id) }}
           name: "${{ needs.build.outputs.version }} (Build ${{ github.run_id }})"
-          body: "Weekly Build triggered by Caddy release ${{ needs.build.outputs.version }}"
+          body: "Build triggered by Caddy release ${{ needs.build.outputs.version }}"
           files: |
             artifacts/caddy-amd64/caddy-amd64
             artifacts/caddy-amd64v3/caddy-amd64v3
