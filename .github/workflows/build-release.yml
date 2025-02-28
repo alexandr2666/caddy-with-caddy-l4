@@ -39,51 +39,52 @@ jobs:
           fi
           echo "caddy_version=$CADDY_VERSION" >> $GITHUB_OUTPUT
 
-      - name: Compare with previous release
-        id: compare_release
-        run: |
-          if [ -f "caddy-version.txt" ]; then
-            PREVIOUS_VERSION=$(cat caddy-version.txt)
-          else
-            PREVIOUS_VERSION="NONE"
-          fi
-          echo "Previous version: $PREVIOUS_VERSION"
-          echo "Current version: ${{ steps.get_caddy_version.outputs.caddy_version }}"
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            # 手动触发时始终构建
-            echo "Manual trigger detected, forcing build."
-            echo "new_release=true" >> $GITHUB_OUTPUT
-          elif [ "${{ steps.get_caddy_version.outputs.caddy_version }}" != "$PREVIOUS_VERSION" ]; then
-            echo "New Caddy release detected!"
-            echo "new_release=true" >> $GITHUB_OUTPUT
-          else
-            echo "No new release."
-            echo "new_release=false" >> $GITHUB_OUTPUT
-          fi
-
+          - name: Compare with previous release
+          id: compare_release
+          run: |
+            if [ -f "caddy-version.txt" ]; then
+              PREVIOUS_VERSION=$(cat caddy-version.txt)
+            else
+              PREVIOUS_VERSION="NONE"
+            fi
+            echo "Previous version: $PREVIOUS_VERSION"
+            echo "Current version: ${{ steps.get_caddy_version.outputs.caddy_version }}"
+            if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+              # 手动触发时始终构建
+              echo "Manual trigger detected, forcing build."
+              echo "new_release=true" >> $GITHUB_OUTPUT
+            elif [ "${{ steps.get_caddy_version.outputs.caddy_version }}" != "$PREVIOUS_VERSION" ]; then
+              echo "New Caddy release detected!"
+              echo "new_release=true" >> $GITHUB_OUTPUT
+            else
+              echo "No new release."
+              echo "new_release=false" >> $GITHUB_OUTPUT
+            fi
+  
       - name: Update version file in repo
         if: steps.compare_release.outputs.new_release == 'true'
         run: |
           NEW_VERSION="${{ steps.get_caddy_version.outputs.caddy_version }}"
-          echo "$NEW_VERSION" > caddy-version.txt
-          git config --global user.name "GitHub Action"
-          git config --global user.email "action@github.com"
-          git add caddy-version.txt
-          # 检查文件是否有更改
-          if ! git diff-index --quiet HEAD --; then
+          # 仅当文件不存在或内容不同的情况下更新版本文件
+          if [ ! -f "caddy-version.txt" ] || [ "$(cat caddy-version.txt)" != "$NEW_VERSION" ]; then
+            echo "$NEW_VERSION" > caddy-version.txt
+            git config --global user.name "GitHub Action"
+            git config --global user.email "action@github.com"
+            git add caddy-version.txt
             git commit -m "Update caddy version to $NEW_VERSION"
             git push
           else
-            echo "No changes detected, skipping commit."
+            echo "No changes detected in version file, skipping commit."
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  
 
 
   build:
     needs: check_caddy_release
     if: needs.check_caddy_release.outputs.new_release == 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest # 使用更强大的运行器
     strategy:
       matrix:
         arch: [amd64, amd64v3, arm64]
